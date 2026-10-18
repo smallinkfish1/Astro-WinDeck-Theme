@@ -29,6 +29,7 @@ export const zhCN: DictMap = {
   "app.about": "关于",
   "app.archive": "归档",
   "app.posts": "最新文章",
+  "app.allPosts": "全部文章",
   "app.search": "搜索",
   "app.bilibili": "B站",
   "app.github": "GitHub",
@@ -55,6 +56,7 @@ export const zhCN: DictMap = {
   /* ── 任务栏 ── */
   "taskbar.start": "开始",
   "taskbar.showDesktop": "回到桌面",
+  "taskbar.openCalendar": "打开日历",
 
   /* ── 开始菜单 ── */
   "menu.recentlyAdded": "最近添加",
@@ -62,6 +64,13 @@ export const zhCN: DictMap = {
   "menu.collapse": "收起",
   "menu.tileCount": "共 {n} 个磁贴",
   "menu.tileCountHint": "改 src/config/tiles.ts 增删",
+
+  /* ── 日历面板 ── */
+  "cal.aria": "日历",
+  "cal.today": "今天",
+  "cal.prevMonth": "上个月",
+  "cal.nextMonth": "下个月",
+  "cal.todaySummary": "今日：{text}",
 
   /* ── 此电脑 / 回收站 ── */
   "ex.new": "新建",
@@ -127,6 +136,7 @@ export const zhCN: DictMap = {
   "np.bytes": "{n} 字节",
   "np.renderedViewShort": "渲染视图",
   "np.sourceViewShort": "源码视图",
+  "np.centerReading": "居中阅读",
 
   /* ── 浏览器 ── */
   "bv.back": "后退",
@@ -215,6 +225,8 @@ export const zhCN: DictMap = {
     "开启后，日期和数字会按所选语言的习惯显示；关闭则始终使用中文格式。",
   "lang.regionalOn": "跟随语言",
   "lang.regionalOff": "固定中文",
+  "lang.hour24": "24 小时制",
+  "lang.hour24Desc": "关闭时显示 10:24 PM，打开后显示 22:24。",
   "lang.note1": "· 这篇文章的正文、教程内容不会跟随语言切换 —— 它们是内容，不是界面。",
   "lang.note2": "· 静态页面（/posts、/about 等）目前保持中文，桌面窗口内的界面才会切换。",
   "lang.note3": "· 语言设置存放在 localStorage，清除浏览器数据会重置。",
@@ -311,6 +323,36 @@ export const zhCN: DictMap = {
   "tile.external": "（外部链接）",
   "tile.weather.cloudy": "多云",
   "tile.weather.placeholder": "—",
+
+  /* ── 桌面图标 / 右键菜单 / 快捷方式 ── */
+  "dk.menuAria": "桌面菜单",
+  "dk.view": "查看",
+  "dk.sizeLarge": "大图标",
+  "dk.sizeMedium": "中等图标",
+  "dk.sizeSmall": "小图标",
+  "dk.showIcons": "显示桌面图标",
+  "dk.personalize": "个性化",
+  "dk.refresh": "刷新",
+  "dk.newPost": "新建文章快捷方式",
+  "dk.newUrl": "新建链接快捷方式",
+  "dk.arrange": "排列图标",
+  "dk.reset": "重置桌面",
+  "dk.delete": "删除",
+  "dk.modalTitle": "新建快捷方式",
+  "dk.tabPost": "文章",
+  "dk.tabUrl": "外部链接",
+  "dk.pickPost": "选择一篇文章",
+  "dk.searchPost": "搜索标题、分类或标签…",
+  "dk.noPostFound": "没有匹配的文章",
+  "dk.willCreate": "将创建：",
+  "dk.urlLabel": "网址",
+  "dk.urlInvalid": "网址要以 http:// 或 https:// 开头",
+  "dk.urlName": "名称（可不填）",
+  "dk.urlNamePlaceholder": "留空则用域名",
+  "dk.urlNameHint": "这个名字会显示在桌面图标下面。",
+  "dk.alreadyExists": "这个快捷方式已经在桌面上了，点「创建」会选中它。",
+  "dk.cancel": "取消",
+  "dk.confirm": "创建",
 
   /* ── 壁纸名 ── */
   "wallpaper.default": "默认（Win10 蓝）",

@@ -166,6 +166,21 @@ export default function StartMenu({ categories, tags }: StartMenuProps) {
       return;
     }
 
+    const app = findApp(item.id);
+
+    /**
+     * ⚠️ pageOnly 的应用打开【静态页】，不开窗口。
+     *
+     *    必须和桌面图标的行为保持一致（见 DesktopIcons 的 launch）。
+     *    不统一的话，同一项从桌面点开是网页、从开始菜单点开是窗口，
+     *    用户会以为其中一个坏了。
+     */
+    if (app?.pageOnly) {
+      window.open(item.url, "_blank", "noopener,noreferrer");
+      setStartMenu(false);
+      return;
+    }
+
     open({ id: item.id, title: t(item.nameKey as keyof Dict), icon: item.icon, path: item.url });
 
     /**
@@ -175,7 +190,6 @@ export default function StartMenu({ categories, tags }: StartMenuProps) {
      *    replaceState 过去之后，用户一刷新就是 404。
      *    地址栏停在原地反而是诚实的：这个窗口本来就没有地址。
      */
-    const app = findApp(item.id);
     if (app?.ready !== false && window.location.pathname !== item.url) {
       window.history.replaceState({ path: item.url }, "", item.url);
     }

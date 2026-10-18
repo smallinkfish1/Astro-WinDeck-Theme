@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { useWindowStore } from "../../store/windowStore";
 import { useClock } from "../../hooks/useClock";
@@ -7,6 +7,42 @@ import StartMenu, { type StartMenuProps } from "./StartMenu";
 import { isImageIcon } from "../../lib/tiles";
 import { useT } from "../../i18n";
 import { WEEKDAY_KEYS } from "../../i18n/types";
+
+/**
+ * 日历面板 —— 懒加载。
+ *
+ * ⚠️⚠️ 这一行是整个功能里最省钱的一行，别改成静态 import。
+ *
+ *    CalendarPanel 依赖 lunar-typescript，那个库：
+ *      · 未压缩 415 KB
+ *      · gzip 后 105 KB
+ *
+ *    对一个纯静态博客的首页来说，首屏多背 105 KB 是不可接受的 ——
+ *    大部分人只是来看文章的，不需要农历。
+ *
+ *    用 lazy() 之后，Vite 会把它单独切一个 chunk，
+ *    用户【第一次点时间区域】时才下载。
+ *    不点，就永远不下载。
+ */
+const CalendarPanel = lazy(() => import("./CalendarPanel"));
+
+/**
+ * 懒加载期间的占位。
+ *
+ * ⚠️ 高度要尽量接近真实面板（约 340px），
+ *    否则下载完成的瞬间面板会"长高"，把任务栏顶一下。
+ *    骨架本身用脉冲动画，让用户知道在加载，不是卡死了。
+ */
+function CalendarSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute bottom-full right-2 mb-2 h-[340px] w-[min(330px,calc(100vw-16px))]
+                 animate-pulse rounded-[6px] border border-[var(--surface-border)]
+                 bg-[var(--surface)] shadow-[0_8px_28px_rgba(0,0,0,.28)]"
+    />
+  );
+}
 
 /**
  * 任务栏上的窗口图标：emoji 或图片路径二选一。
@@ -62,6 +98,16 @@ export default function Taskbar({ categories, tags }: StartMenuProps) {
   const clock = useClock();
   const isMobile = useIsMobile();
   const barRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * 日历面板开着吗。
+   *
+   * ⚠️ 用本地 state 而不是塞进 windowStore：
+   *    整个桌面只有这一个地方读写它，没有跨岛屿共享的需求。
+   *    进全局 store 反而会让"关闭时重置翻月状态"变麻烦 ——
+   *    现在组件卸载，面板内部的月份自然回到当月。
+   */
+  const [calOpen, setCalOpen] = useState(false);
 
   /** 点任务栏空白处 / 点桌面其它地方，都要收起开始菜单 */
   /**
@@ -119,6 +165,20 @@ export default function Taskbar({ categories, tags }: StartMenuProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [startMenuOpen, setStartMenu]);
+
+  /**
+   * 开始菜单和日历面板互斥。
+   *
+   * ⚠️ 为什么会撞：两个都是从任务栏上沿往上弹，位置几乎重叠。
+   *    同时开着会叠成一团，而且点哪个都不对。
+   *
+   * ⚠️ 这里只处理"开菜单 → 关日历"这一个方向。
+   *    反方向（开日历 → 关菜单）在下面时间按钮的 onClick 里做，
+   *    因为那里是用户动作发生的现场，顺手关掉最直接。
+   */
+  useEffect(() => {
+    if (startMenuOpen) setCalOpen(false);
+  }, [startMenuOpen]);
 
   return (
     <>
@@ -210,15 +270,36 @@ export default function Taskbar({ categories, tags }: StartMenuProps) {
 
         {/* ── 右：系统托盘 ── */}
         <div className="flex h-full shrink-0 items-center">
-          {/* 实时时钟：时间 + 日期，点一下可收起开始菜单之外不做别的 */}
-          <div
-            className="flex h-full cursor-default flex-col items-center justify-center
-                       px-3 text-[11px] leading-tight hover:bg-[var(--hover-invert)]"
+          {/*
+            实时时钟：时间 + 日期。
+
+            ⚠️ 以前是个 div（纯展示），现在必须是 button ——
+               点它要弹日历。用 button 而不是 div + onClick：
+               键盘能 Tab 到、能用回车触发、屏幕阅读器知道它能点。
+
+            ⚠️ data-calendar-toggle 是给 CalendarPanel 认的。
+               面板监听"点外部关闭"时，要放过这个按钮 ——
+               否则点击事件会先关面板、再被按钮的 onClick 重新打开，
+               结果就是"点了没反应"。
+          */}
+          <button
+            type="button"
+            data-calendar-toggle
+            aria-label={t("taskbar.openCalendar")}
+            aria-expanded={calOpen}
             title={`${clock.date} ${t(WEEKDAY_KEYS[clock.weekdayIndex])}`}
+            onClick={() => {
+              setCalOpen((v) => !v);
+              // 开日历就收起开始菜单 —— 两个面板位置重叠，不能同时开
+              setStartMenu(false);
+            }}
+            className={`flex h-full flex-col items-center justify-center px-3
+                        text-[11px] leading-tight transition-colors
+                        ${calOpen ? "bg-[var(--hover-invert)]" : "hover:bg-[var(--hover-invert)]"}`}
           >
             <span className="tabular-nums">{clock.time}</span>
             {!isMobile && <span className="opacity-80">{clock.date}</span>}
-          </div>
+          </button>
 
           {/* 回到桌面 */}
           <button
@@ -231,6 +312,25 @@ export default function Taskbar({ categories, tags }: StartMenuProps) {
             <ShowDesktopIcon />
           </button>
         </div>
+
+        {/*
+          日历面板。
+
+          ⚠️ 放在任务栏这个 fixed 容器【内部】，而不是外面 ——
+             它靠 `absolute bottom-full` 贴在任务栏上沿。
+             fixed 元素是定位包含块，所以这里的绝对定位是相对任务栏算的。
+
+          ⚠️ Suspense 包在外层、条件判断在里层：
+             这样 calOpen 为 false 时子元素是 false，不会触发挂起，
+             也就不会出现"没开面板却显示了骨架"。
+
+          ⚠️ 退出动画这里没有做（AnimatePresence 那套）。
+             日历面板是瞬时开关的，加动画反而拖沓；
+             开始菜单有退场动画是因为它面积大、突然消失很突兀。
+        */}
+        <Suspense fallback={<CalendarSkeleton />}>
+          {calOpen && <CalendarPanel onClose={() => setCalOpen(false)} />}
+        </Suspense>
       </div>
     </>
   );

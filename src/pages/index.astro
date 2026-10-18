@@ -84,9 +84,10 @@ const stats = await getStats();
   {/* 桌面图标层：在 DOM 里排在窗口层之后，但窗口的 z-index 从 10 起，
       所以图标始终在窗口下方。
 
-      ⚠️ 不再传 posts ——「创建快捷方式」功能暂时下线，
-         桌面图标层只需要内置应用清单（来自 config/apps.ts）。 */}
-  <Desktop />
+      ⚠️ posts 要传 ——「新建文章快捷方式」要从已发布文章里挑一篇，
+         而岛屿里不能调 getPosts()（依赖 astro:content 的编译期机制），
+         只能构建期算好再序列化进来。 */}
+  <Desktop posts={posts} />
 
   {/* 任务栏：固定在底部，z-index 100，压在窗口之上。
       开始菜单（z-110）再压在它之上。 */}

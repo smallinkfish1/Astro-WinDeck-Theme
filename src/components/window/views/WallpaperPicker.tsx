@@ -60,14 +60,15 @@ function WallpaperCard({
   onPick: (id: string) => void;
 }) {
   /**
-   * ⚠️ 缩略图用 light 版本。
+   * ⚠️ 缩略图一律用【亮色/单图】版本，不跟当前主题切。
    *
-   *    为什么不跟着当前主题切 dark 版？
-   *      因为用户是在"挑壁纸"，需要能同时看到所有候选，
-   *      而不是让一半缩略图变成看不清的暗块。
-   *      亮色缩略图在暗色主题下依然能看清（卡片有边框和底色），
-   *      反过来就不成立。
+   *    因为用户是在"挑壁纸"，需要能同时看到所有候选，
+   *    而不是让一半缩略图变成看不清的暗块。
+   *
+   * ⚠️ 取值顺序：thumb → image（单图模式）→ light（双图模式的亮版）。
+   *    直接写 item.light 的话，三张单图壁纸会全部取不到图。
    */
+  const preview = item.thumb ?? item.image ?? item.light ?? "";
   const { t } = useT();
   const [missing, setMissing] = useState(false);
 
@@ -108,7 +109,7 @@ function WallpaperCard({
           </div>
         ) : (
           <img
-            src={item.thumb ?? item.light}
+            src={preview}
             alt={label}
             loading="lazy"
             decoding="async"

@@ -9,10 +9,17 @@
  *   已有的四个外观开关（暗色 / 毛玻璃 / 动画 / 开始菜单深色）都是
  *   「一个维度、非开即关」，所以用 class 很自然：有类=开，没类=关。
  *
- *   但壁纸不一样，它是「多选一」，而且要和亮色/暗色【正交组合】：
+ *   但壁纸不一样，它是「多选一」，而且原本要和亮色/暗色正交组合。
  *
- *       亮色 + 极光      → /wallpapers/aurora.jpg
- *       暗色 + 极光      → /wallpapers/aurora-dark.jpg
+ *       ⚠️ 现在只有 default 还是两维的（Win10 官方那两张官方壁纸）：
+ *
+ *           亮色 + 默认      → /wallpaper.jpg
+ *           暗色 + 默认      → /wallpaper-dark.jpg
+ *
+ *       其余三张是【单图模式】，亮暗共用一张：
+ *
+ *           亮色 + 极光      → /wallpapers/aurora.jpg
+ *           暗色 + 极光      → /wallpapers/aurora.jpg
  *
  *   如果走 class，就得写成 .wall-aurora、.wall-aurora.theme-dark、
  *   .wall-mountains、.wall-mountains.theme-dark…… 每加一张壁纸
@@ -21,7 +28,8 @@
  *   用属性就干净了：
  *       <html data-wallpaper="aurora" class="theme-dark">
  *   属性那一位说"哪张壁纸"，class 那一位说"亮还是暗"，
- *   两个维度各管各的，CSS 里就是一条选择器相乘，线性增长。
+ *   两个维度仍然各管各的 —— 只是单图模式下，
+ *   暗色那一位匹配不到额外规则，自动落回同一张图。
  *
  * ── 图片文件放哪儿 ──
  *
@@ -45,20 +53,44 @@ export interface WallpaperItem {
    *    所以这里只放注册名，渲染时才翻译。
    */
   nameKey: string;
-  /** 亮色版本 */
-  light: string;
-  /** 暗色版本 */
-  dark: string;
-  /** 缩略图预览用哪一张（留空则用 light） */
+  /**
+   * 单一图片：亮色、暗色共用这一张。
+   *
+   * ⚠️ 和 light/dark 二选一，别同时写。
+   *
+   *    除了 Win10 官方那对亮暗壁纸（default），其余壁纸都用这个模式 ——
+   *    每张只准备一个文件，不用再出 `-dark.jpg`。
+   */
+  image?: string;
+  /** 亮色版本。只有 default 这种「官方亮暗成对」的壁纸才用 */
+  light?: string;
+  /** 暗色版本。同上，必须和 light 一起给 */
+  dark?: string;
+  /** 缩略图预览用哪一张（留空则按 image → light 的顺序取） */
   thumb?: string;
+}
+
+/**
+ * 取某张壁纸在【当前主题】下该用哪个文件。
+ *
+ * ⚠️ 所有需要"这张壁纸到底指向哪张图"的地方都走这里，
+ *    不要在调用方自己写 `item.light` 或 `item.image` ——
+ *    那样单图模式和双图模式就会各漏一半。
+ */
+export function wallpaperSource(item: WallpaperItem, isDark: boolean): string {
+  if (item.image) return item.image;
+  return (isDark ? item.dark : item.light) ?? item.light ?? "";
 }
 
 /**
  * ⚠️ 顺序就是控制面板里的显示顺序，第一张是默认。
  *
  *   default 用的是仓库里已有的 /wallpaper.jpg 和 /wallpaper-dark.jpg
- *   （第六阶段就放进 public/ 了），所以它开箱即用。
- *   其余三张需要你往 public/wallpapers/ 里补图。
+ *   （第六阶段就放进 public/ 了），所以它开箱即用，
+ *   而且【保留亮暗两版】—— 那是 Win10 官方的两张壁纸。
+ *
+ *   其余三张是【单图模式】：亮色暗色共用同一张，
+ *   往 public/wallpapers/ 里各放一个文件即可，不用再出 -dark 版。
  */
 export const WALLPAPERS: WallpaperItem[] = [
   {
@@ -70,20 +102,17 @@ export const WALLPAPERS: WallpaperItem[] = [
   {
     id: "aurora",
     nameKey: "wallpaper.aurora",
-    light: "/wallpapers/aurora.jpg",
-    dark: "/wallpapers/aurora-dark.jpg",
+    image: "/wallpapers/aurora.jpg",
   },
   {
     id: "mountains",
     nameKey: "wallpaper.mountain",
-    light: "/wallpapers/mountains.jpg",
-    dark: "/wallpapers/mountains-dark.jpg",
+    image: "/wallpapers/mountains.jpg",
   },
   {
     id: "abstract",
     nameKey: "wallpaper.geometric",
-    light: "/wallpapers/abstract.jpg",
-    dark: "/wallpapers/abstract-dark.jpg",
+    image: "/wallpapers/abstract.jpg",
   },
 ];
 
@@ -157,6 +186,16 @@ export const WALLPAPER_IDS = WALLPAPERS.map((w) => w.id);
  */
 export function wallpaperVarMap(): Record<string, { light: string; dark: string }> {
   const out: Record<string, { light: string; dark: string }> = {};
-  for (const w of WALLPAPERS) out[w.id] = { light: w.light, dark: w.dark };
+  for (const w of WALLPAPERS) {
+    /**
+     * ⚠️ 单图模式下亮暗指向同一个文件 —— 这必须和 global.css 里的
+     *    实际规则一致（那边也删掉了对应的 .theme-dark 规则）。
+     *    两边不一致的话，这个函数给出的信息就是错的。
+     */
+    out[w.id] = {
+      light: wallpaperSource(w, false),
+      dark: wallpaperSource(w, true),
+    };
+  }
   return out;
 }

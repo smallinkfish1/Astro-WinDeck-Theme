@@ -66,6 +66,8 @@ export interface Dict {
   "app.about": string;
   "app.archive": string;
   "app.posts": string;
+  /** 桌面图标用的名字 —— 它打开的是 /posts 静态页，不是窗口 */
+  "app.allPosts": string;
   "app.search": string;
   "app.bilibili": string;
   "app.github": string;
@@ -92,6 +94,8 @@ export interface Dict {
   /* ── 任务栏 ── */
   "taskbar.start": string;
   "taskbar.showDesktop": string;
+  /** 时间区域的 aria-label —— 它现在是个按钮，点了会弹日历 */
+  "taskbar.openCalendar": string;
 
   /* ── 开始菜单 ── */
   "menu.recentlyAdded": string;
@@ -99,6 +103,20 @@ export interface Dict {
   "menu.collapse": string;
   "menu.tileCount": string;
   "menu.tileCountHint": string;
+
+  /*
+   * ── 日历面板 ──
+   *
+   * ⚠️ 这里只有【界面】文案。农历日名、节气名、节日名都不在词典里 ——
+   *    它们直接来自 lunar-typescript 的中文输出，切英文时也保持中文。
+   *    这是产品决定，不是漏翻（见 lib/lunar.ts 顶部说明）。
+   */
+  "cal.aria": string;
+  "cal.today": string;
+  "cal.prevMonth": string;
+  "cal.nextMonth": string;
+  /** 底部摘要。{text} 是「农历九月初七 · 丙午年」这种中文串 */
+  "cal.todaySummary": string;
 
   /* ── 此电脑 / 回收站（文件管理器外壳） ── */
   "ex.new": string;
@@ -163,6 +181,8 @@ export interface Dict {
   "np.bytes": string;
   "np.renderedViewShort": string;
   "np.sourceViewShort": string;
+  /** 「查看」菜单里的居中阅读开关 */
+  "np.centerReading": string;
 
   /* ── 浏览器 ── */
   "bv.back": string;
@@ -245,6 +265,9 @@ export interface Dict {
   "lang.regionalFormatDesc": string;
   "lang.regionalOn": string;
   "lang.regionalOff": string;
+  /** 24 小时制开关（默认关 = 12 小时制） */
+  "lang.hour24": string;
+  "lang.hour24Desc": string;
   "lang.note1": string;
   "lang.note2": string;
   "lang.note3": string;
@@ -338,6 +361,37 @@ export interface Dict {
   "tile.external": string;
   "tile.weather.cloudy": string;
   "tile.weather.placeholder": string;
+
+  /* ── 桌面图标 / 右键菜单 / 快捷方式 ── */
+  "dk.menuAria": string;
+  /** 右键菜单「查看」子菜单 */
+  "dk.view": string;
+  "dk.sizeLarge": string;
+  "dk.sizeMedium": string;
+  "dk.sizeSmall": string;
+  "dk.showIcons": string;
+  "dk.personalize": string;
+  "dk.refresh": string;
+  "dk.newPost": string;
+  "dk.newUrl": string;
+  "dk.arrange": string;
+  "dk.reset": string;
+  "dk.delete": string;
+  "dk.modalTitle": string;
+  "dk.tabPost": string;
+  "dk.tabUrl": string;
+  "dk.pickPost": string;
+  "dk.searchPost": string;
+  "dk.noPostFound": string;
+  "dk.willCreate": string;
+  "dk.urlLabel": string;
+  "dk.urlInvalid": string;
+  "dk.urlName": string;
+  "dk.urlNamePlaceholder": string;
+  "dk.urlNameHint": string;
+  "dk.alreadyExists": string;
+  "dk.cancel": string;
+  "dk.confirm": string;
 
   /* ── 壁纸名 ── */
   "wallpaper.default": string;

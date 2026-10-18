@@ -48,11 +48,28 @@ import { useT, fmtDate } from "../../../i18n";
  *    没必要为它增加启动脚本的复杂度。
  */
 const KEY_NOTEPAD_VIEW = "win10-blog:notepad-view";
+/** 居中阅读开关。和视图模式分开存，两者互不影响 */
+const KEY_NOTEPAD_CENTER = "win10-blog:notepad-center";
 
 /** 读上次的视图模式。默认渲染视图（true） */
 function getSavedRendered(): boolean {
   if (typeof localStorage === "undefined") return true;
   return localStorage.getItem(KEY_NOTEPAD_VIEW) !== "source";
+}
+
+/**
+ * 读上次的「居中阅读」。
+ *
+ * ⚠️ 默认【开】。
+ *
+ *    判断的是 `!== "off"` 而不是 `=== "on"`：
+ *    没存过（第一次用）、值被改坏、读不出来 —— 都按"开"处理。
+ *    理由是窗口可以拉得很宽，不居中的话一行能排一百多个字，
+ *    长文基本没法读。默认开是在替用户做正确的选择。
+ */
+function getSavedCentered(): boolean {
+  if (typeof localStorage === "undefined") return true;
+  return localStorage.getItem(KEY_NOTEPAD_CENTER) !== "off";
 }
 
 /**
@@ -174,6 +191,13 @@ export default function NotepadView({
 
   const [slug, setSlug] = useState<string>(() => initialSlug ?? pickRandomSlug(posts));
   const [wrap, setWrap] = useState(true);
+  /**
+   * 居中阅读：内容限制在 720px 宽、左右自动留白。
+   *
+   * ⚠️ 只影响【渲染视图】。源码视图不居中 ——
+   *    代码需要宽度，一行被折断比没有留白难受得多。
+   */
+  const [centered, setCentered] = useState(() => getSavedCentered());
   /** 菜单栏展开的是哪一项，null 表示都收起 */
   const [menu, setMenu] = useState<string | null>(null);
 
@@ -278,6 +302,18 @@ export default function NotepadView({
     if (typeof localStorage === "undefined") return;
     localStorage.setItem(KEY_NOTEPAD_VIEW, rendered ? "rendered" : "source");
   }, [rendered, onlySource]);
+
+  /**
+   * 记住「居中阅读」的选择。
+   *
+   * ⚠️ 这个和视图模式不同，不需要 onlySource 保护 ——
+   *    只读模式下用户仍然是在这个窗口里读文章，
+   *    他的偏好应该照常被记住。
+   */
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(KEY_NOTEPAD_CENTER, centered ? "on" : "off");
+  }, [centered]);
 
   /** 点菜单外部就收起。用 pointerdown 而不是 click，手感更跟手 */
   useEffect(() => {
@@ -426,6 +462,17 @@ export default function NotepadView({
           run: onlySource ? undefined : () => setRendered(false),
         },
         { label: "—" },
+        /*
+          ⚠️ 居中阅读只在渲染视图下可用。
+             源码视图居中会把长代码折成好几段，反而更难读，
+             所以非渲染视图时把它置灰（run 传 undefined）。
+        */
+        {
+          label: t("np.centerReading"),
+          check: centered,
+          run: rendered ? () => setCentered((v) => !v) : undefined,
+        },
+        { label: "—" },
         { label: t("np.prev"), run: () => goto(-1) },
         { label: t("np.next"), run: () => goto(1) },
         { label: "—" },
@@ -546,7 +593,15 @@ export default function NotepadView({
              排版规则。三处正文长得一样，改一处全都跟着变。
         */
         <div className="win-body min-h-0 flex-1 overflow-auto bg-[var(--surface)] p-4">
-          <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
+          {/*
+            ⚠️ 居中靠 mx-auto + max-w，不需要额外的包裹层。
+            ⚠️ 720px 是一行约 75-80 个汉字的宽度。
+               窗口比这窄时 max-w 会自动收缩，不会出现横向滚动。
+          */}
+          <div
+            className={`md-body ${centered ? "mx-auto max-w-[720px]" : ""}`}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
         </div>
       ) : (
         /*

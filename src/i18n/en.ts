@@ -37,6 +37,7 @@ export const en: DictMap = {
   "app.about": "About",
   "app.archive": "Archive",
   "app.posts": "Latest Posts",
+  "app.allPosts": "All posts",
   "app.search": "Search",
   "app.bilibili": "Bilibili",
   "app.github": "GitHub",
@@ -63,6 +64,7 @@ export const en: DictMap = {
   /* ── Taskbar ── */
   "taskbar.start": "Start",
   "taskbar.showDesktop": "Show desktop",
+  "taskbar.openCalendar": "Open calendar",
 
   /* ── Start menu ── */
   "menu.recentlyAdded": "Recently added",
@@ -70,6 +72,13 @@ export const en: DictMap = {
   "menu.collapse": "Collapse",
   "menu.tileCount": "{n} tiles",
   "menu.tileCountHint": "Edit src/config/tiles.ts to add or remove",
+
+  /* ── Calendar panel ── */
+  "cal.aria": "Calendar",
+  "cal.today": "Today",
+  "cal.prevMonth": "Previous month",
+  "cal.nextMonth": "Next month",
+  "cal.todaySummary": "Today: {text}",
 
   /* ── This PC / Recycle Bin ── */
   "ex.new": "New",
@@ -135,6 +144,7 @@ export const en: DictMap = {
   "np.bytes": "{n} bytes",
   "np.renderedViewShort": "Rendered view",
   "np.sourceViewShort": "Source view",
+  "np.centerReading": "Centered reading",
 
   /* ── Blog Explorer ── */
   "bv.back": "Back",
@@ -223,6 +233,8 @@ export const en: DictMap = {
     "When on, dates and numbers follow the selected language's conventions. When off, Chinese formatting is always used.",
   "lang.regionalOn": "Match language",
   "lang.regionalOff": "Always Chinese",
+  "lang.hour24": "24-hour clock",
+  "lang.hour24Desc": "Off shows 10:24 PM; on shows 22:24.",
   "lang.note1": "· Post bodies and guide content do not switch with the language — they're content, not interface.",
   "lang.note2": "· Static pages (/posts, /about, etc.) stay in Chinese for now; only the interface inside desktop windows switches.",
   "lang.note3": "· The language setting lives in localStorage — clearing browser data resets it.",
@@ -319,6 +331,36 @@ export const en: DictMap = {
   "tile.external": " (external link)",
   "tile.weather.cloudy": "Cloudy",
   "tile.weather.placeholder": "—",
+
+  /* ── Desktop icons / context menu / shortcuts ── */
+  "dk.menuAria": "Desktop menu",
+  "dk.view": "View",
+  "dk.sizeLarge": "Large icons",
+  "dk.sizeMedium": "Medium icons",
+  "dk.sizeSmall": "Small icons",
+  "dk.showIcons": "Show desktop icons",
+  "dk.personalize": "Personalize",
+  "dk.refresh": "Refresh",
+  "dk.newPost": "New post shortcut",
+  "dk.newUrl": "New link shortcut",
+  "dk.arrange": "Auto arrange icons",
+  "dk.reset": "Reset desktop",
+  "dk.delete": "Delete",
+  "dk.modalTitle": "New shortcut",
+  "dk.tabPost": "Post",
+  "dk.tabUrl": "External link",
+  "dk.pickPost": "Pick a post",
+  "dk.searchPost": "Search by title, category, or tag…",
+  "dk.noPostFound": "No matching posts",
+  "dk.willCreate": "Will create:",
+  "dk.urlLabel": "URL",
+  "dk.urlInvalid": "The URL must start with http:// or https://",
+  "dk.urlName": "Name (optional)",
+  "dk.urlNamePlaceholder": "Defaults to the domain",
+  "dk.urlNameHint": "This is what shows under the icon on the desktop.",
+  "dk.alreadyExists": "This shortcut is already on the desktop — clicking Create will select it.",
+  "dk.cancel": "Cancel",
+  "dk.confirm": "Create",
 
   /* ── Wallpaper names ── */
   "wallpaper.default": "Default (Win10 Blue)",

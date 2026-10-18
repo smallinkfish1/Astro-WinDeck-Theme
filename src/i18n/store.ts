@@ -49,6 +49,7 @@ import { HTML_LANG, LANGS, type DictMap, type Lang } from "./types";
  */
 export const KEY_LANG = "win10-blog:lang";
 export const KEY_REGIONAL = "win10-blog:regional";
+export const KEY_HOUR24 = "win10-blog:hour24";
 
 /**
  * 两本词典。
@@ -98,15 +99,37 @@ function readRegional(): boolean {
   return localStorage.getItem(KEY_REGIONAL) === "on";
 }
 
+/**
+ * 24 小时制开关。
+ *
+ * ⚠️ 默认【关】= 12 小时制，任务栏显示 10:24 PM。
+ *
+ *    为什么默认 12 小时：这是控制面板里明确给用户的默认值，
+ *    和 Windows 10 英文版的初始状态一致（中文版默认 24 小时）。
+ *    想用 24 小时制的自己打开，一个开关的事。
+ *
+ * ⚠️ 和「地区格式」是两个独立开关，别合并。
+ *    真实 Windows 里「时间格式」和「地区」也分得开：
+ *    有人用英文界面 + 24 小时制，也有人反过来。
+ */
+function readHour24(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(KEY_HOUR24) === "on";
+}
+
 interface I18nStore {
   /** 当前界面语言 */
   lang: Lang;
   /** 地区格式是否跟随语言（false = 固定中文格式） */
   regional: boolean;
+  /** 是否用 24 小时制（false = 12 小时制，显示 10:24 PM） */
+  hour24: boolean;
   /** 切换语言 */
   setLang: (lang: Lang) => void;
   /** 开关地区格式 */
   setRegional: (on: boolean) => void;
+  /** 开关 24 小时制 */
+  setHour24: (on: boolean) => void;
 }
 
 export const useI18nStore = create<I18nStore>((set) => ({
@@ -124,6 +147,7 @@ export const useI18nStore = create<I18nStore>((set) => ({
    */
   lang: DEFAULT_LANG,
   regional: false,
+  hour24: false,
 
   setLang: (lang) => {
     set({ lang });
@@ -150,6 +174,13 @@ export const useI18nStore = create<I18nStore>((set) => ({
       localStorage.setItem(KEY_REGIONAL, on ? "on" : "off");
     }
   },
+
+  setHour24: (on) => {
+    set({ hour24: on });
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(KEY_HOUR24, on ? "on" : "off");
+    }
+  },
 }));
 
 /**
@@ -171,11 +202,16 @@ export function readRegionalFromStore(): boolean {
   return useI18nStore.getState().regional;
 }
 
+export function readHour24FromStore(): boolean {
+  return useI18nStore.getState().hour24;
+}
+
 /** 供 index.ts 在客户端挂载时调用，把 localStorage 里的真实值同步进来 */
 export function hydrateI18n() {
   const lang = readLang();
   const regional = readRegional();
-  useI18nStore.setState({ lang, regional });
+  const hour24 = readHour24();
+  useI18nStore.setState({ lang, regional, hour24 });
   if (typeof document !== "undefined") {
     document.documentElement.lang = HTML_LANG[lang];
   }

@@ -373,8 +373,10 @@ function LanguagePage() {
   const { t } = useT();
   const lang = useI18nStore((s) => s.lang);
   const regional = useI18nStore((s) => s.regional);
+  const hour24 = useI18nStore((s) => s.hour24);
   const setLang = useI18nStore((s) => s.setLang);
   const setRegional = useI18nStore((s) => s.setRegional);
+  const setHour24 = useI18nStore((s) => s.setHour24);
 
   return (
     <div className="flex flex-col gap-3">
@@ -397,6 +399,20 @@ function LanguagePage() {
           desc={t("lang.regionalFormatDesc")}
           value={regional}
           onChange={() => setRegional(!regional)}
+        />
+
+        {/*
+          24 小时制。
+          ⚠️ 和上面「地区格式」是【两个独立开关】，别合并成一个：
+             真实 Windows 里时间格式和地区也分得开。
+          ⚠️ 改完立刻生效 —— useClock 订阅了 hour24，
+             store 一变，任务栏下一帧就重算。
+        */}
+        <ToggleRow
+          title={t("lang.hour24")}
+          desc={t("lang.hour24Desc")}
+          value={hour24}
+          onChange={() => setHour24(!hour24)}
         />
       </section>
 

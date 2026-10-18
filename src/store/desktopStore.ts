@@ -40,30 +40,21 @@ import { create } from "zustand";
 import { DESKTOP_APP_IDS } from "../config/apps";
 
 /**
- * 网格尺寸。
+ * 桌面网格的公共参数。
  *
- * ⚠️⚠️ 这四个数字必须和 CSS 对得上，否则鼠标点中的位置和图标画出来的位置会错开。
- *    改这里之前先看 components/desktop/DesktopIcons.tsx 里的容器样式。
+ * ⚠️ 格子的宽高【不在这里】—— 它跟着「图标大小」变，见 CELL_SIZES。
+ *    以前这里写死了 cellW/cellH，加了「查看 → 大/中/小图标」之后
+ *    必须变成可切换的。
  */
 export const GRID = {
-  /** 一格宽（px）。一个图标加上左右留白刚好占一格 */
-  cellW: 88,
-  /** 一格高（px）。图标 + 底下两行文字的高度 */
-  cellH: 92,
   /** 桌面左上角留白（px） */
   padX: 12,
   padY: 12,
   /**
    * 一列【至少】放几个图标。
    *
-   * ⚠️ 实际数量按视口高度算，见下面的 rowsPerColumn()。
+   * ⚠️ 实际数量按视口高度算，见 rowsPerColumn()。
    *    这里只是兜底值 —— 视口算不出来时（构建期）用它。
-   *
-   * ⚠️⚠️ 以前这里是写死的 `rows: 5`，那是个隐藏的坑：
-   *    5 × 92px = 460px，网格只覆盖屏幕上半部分。
-   *    用户在 1080p 上把图标往下一拖，落点会被钳回第 5 行 ——
-   *    看起来就是"拖到一半拖不动了"。
-   *    网格必须跟着屏幕高度长，否则拖动功能只能算半成品。
    */
   minRows: 5,
   /**
@@ -71,24 +62,34 @@ export const GRID = {
    *
    * ⚠️ 这是个保护：防止快捷方式太多时跑到屏幕外面去，
    *    那种情况用户既看不到也删不掉，只能清 localStorage。
-   *    真的不够用的话，调大它，或者以后做成"按屏幕宽度动态算"。
    */
   maxCols: 12,
 } as const;
 
 /**
- * 当前视口下，一列能放几个图标。
- *
- * ⚠️ 为什么是函数而不是常量：
- *    网格高度必须跟着屏幕长，否则大屏上"下半屏"是死区 ——
- *    拖过去会被钳回来，用户会以为拖动坏了。
- *
- * ⚠️ 为什么减 40：那是任务栏高度（--taskbar-h）。
- *    这里写死数字是为了让 store 不依赖 CSS 变量。
- *    改任务栏高度时记得同步这一处。
- *
- * ⚠️ 为什么减 padY * 2：上下各留一份边距，否则最后一行会被削掉一半。
+ * 图标大小档位。右键菜单「查看」里切换，存在 localStorage。
  */
+export type IconSize = "sm" | "md" | "lg";
+
+/**
+ * 三档尺寸。
+ *
+ *   w/h   → 一个格子占多大（决定图标间距）
+ *   icon  → 图标本身画多大
+ *   font  → 图标下面那行文字的字号
+ *
+ * ⚠️ 调大档位会让一列能放的图标变少，原本靠下的图标会被 sanitize
+ *    挪到上面的空位。这和 Windows 改图标大小后重排是一样的，属预期行为。
+ */
+export const CELL_SIZES: Record<
+  IconSize,
+  { w: number; h: number; icon: number; font: number }
+> = {
+  sm: { w: 72, h: 76, icon: 36, font: 11 },
+  md: { w: 88, h: 92, icon: 44, font: 12 },
+  lg: { w: 104, h: 110, icon: 56, font: 13 },
+};
+
 /**
  * 任务栏高度（px）。
  *
@@ -101,16 +102,18 @@ export const TASKBAR_H = 40;
 /**
  * 当前视口下，一列能放几个图标。
  *
+ * @param cellH 格子高度。不同图标大小档位不一样，所以必须由调用方传进来。
+ *
  * ⚠️ 为什么是函数而不是常量：
  *    网格高度必须跟着屏幕长，否则大屏上"下半屏"是死区 ——
  *    拖过去会被钳回来，用户会以为拖动坏了。
  *
  * ⚠️ 为什么减 padY * 2：上下各留一份边距，否则最后一行会被削掉一半。
  */
-export function rowsPerColumn(): number {
+export function rowsPerColumn(cellH: number = CELL_SIZES.md.h): number {
   if (typeof window === "undefined") return GRID.minRows;
   const usable = window.innerHeight - TASKBAR_H - GRID.padY * 2;
-  return Math.max(GRID.minRows, Math.floor(usable / GRID.cellH));
+  return Math.max(GRID.minRows, Math.floor(usable / cellH));
 }
 
 /** 网格坐标 */
@@ -152,6 +155,15 @@ export interface DesktopItem {
 
 /** localStorage 键。和项目其它设置一样带统一前缀 */
 const KEY_DESKTOP = "win10-blog:desktop";
+/**
+ * ⚠️ 图标大小和"显示桌面图标"单独存两个键，不塞进 KEY_DESKTOP 里。
+ *
+ *    因为 KEY_DESKTOP 存的是【数组】，而这俩是设置项。
+ *    混在一起的话，每次开关图标都要把整个数组重写一遍，
+ *    而且读取时要兼容两种结构 —— 不值得。
+ */
+const KEY_ICON_SIZE = "win10-blog:desktop:iconSize";
+const KEY_SHOW_ICONS = "win10-blog:desktop:showIcons";
 
 /* ════════════════════════════════════════════════════════════════
    网格工具（纯函数，好推理也好测）
@@ -164,18 +176,13 @@ const KEY_DESKTOP = "win10-blog:desktop";
  *    找"下一个空位"本质上是在一个二维网格里找空洞。
  *    把它拉直成一维之后，逻辑就变成"沿着列表找第一个没被占的位置" ——
  *    五行代码，没有嵌套循环，也不容易写错。
+ *
+ * @param rows 一列放几个。由调用方按当前图标大小算好传进来 ——
+ *             ⚠️ 不能在这里自己调 rowsPerColumn()，因为它需要 cellH，
+ *             而 cellH 取决于图标档位，是调用方才知道的信息。
  */
-function layoutSlots(): GridPos[] {
+function layoutSlots(rows: number): GridPos[] {
   const slots: GridPos[] = [];
-  /**
-   * ⚠️ 行数每次调用都重新算 —— 用户改窗口大小时（比如把浏览器
-   *    从全屏缩成小窗），下一次 findFreeSlot / sanitize 就会
-   *    按新的高度重新铺网格。
-   *
-   *    这不会导致图标"自己乱跳"：已经合法的位置保持不变，
-   *    只有越界的（超出新视口）才会被 sanitize 挪回来。
-   */
-  const rows = rowsPerColumn();
   for (let col = 0; col < GRID.maxCols; col++) {
     for (let row = 0; row < rows; row++) {
       slots.push({ col, row });
@@ -196,12 +203,17 @@ export function sameSlot(a: GridPos, b: GridPos): boolean {
  * @param preferred 优先尝试的位置（比如拖动后想放的地方）。
  *                  被占了就从它开始往后找最近的一个空位。
  *                  ⚠️ 不传就是"从左上角开始找第一个空的"。
+ * @param rows      一列放几个。默认按「中」档图标算，调用方有更准确的值时应该传。
  *
  * ⚠️ 找不到空位时返回 null，由调用方决定怎么办（我们会给个提示，不会静默丢东西）。
  */
-export function findFreeSlot(items: DesktopItem[], preferred?: GridPos): GridPos | null {
+export function findFreeSlot(
+  items: DesktopItem[],
+  preferred?: GridPos,
+  rows: number = rowsPerColumn(),
+): GridPos | null {
   const taken = new Set(items.map((i) => `${i.position.col},${i.position.row}`));
-  const slots = layoutSlots();
+  const slots = layoutSlots(rows);
 
   // 有 preferred 就从它那一格开始，沿着铺好的顺序往后扫
   const start = preferred ? slots.findIndex((s) => sameSlot(s, preferred)) : 0;
@@ -226,10 +238,10 @@ export function findFreeSlot(items: DesktopItem[], preferred?: GridPos): GridPos
  *
  *    处理方式：按顺序重新分配合法空位，保证不重叠、不越界。
  */
-function sanitize(items: DesktopItem[]): DesktopItem[] {
+function sanitize(items: DesktopItem[], rows: number): DesktopItem[] {
   const out: DesktopItem[] = [];
   for (const item of items) {
-    const slot = findFreeSlot(out, item.position);
+    const slot = findFreeSlot(out, item.position, rows);
     if (!slot) continue; // 网格满了，这个就不放了（下面会提示）
     out.push({ ...item, position: slot });
   }
@@ -260,7 +272,32 @@ function defaultItems(): DesktopItem[] {
  *
  * 任何一步不对都【退回默认布局】。降级永远比崩溃好。
  */
-function readItems(): DesktopItem[] {
+/**
+ * 读图标大小。
+ *
+ * ⚠️ 必须做白名单校验 —— localStorage 可被手改，
+ *    改成一个不存在的档位会让 CELL_SIZES[size] 变成 undefined，
+ *    后面取 .h 直接崩在渲染里。
+ */
+function readIconSize(): IconSize {
+  if (typeof localStorage === "undefined") return "md";
+  const raw = localStorage.getItem(KEY_ICON_SIZE);
+  return raw === "sm" || raw === "md" || raw === "lg" ? raw : "md";
+}
+
+/**
+ * 读"是否显示桌面图标"。
+ *
+ * ⚠️ 默认 true，而且判断的是 `!== "off"` 而不是 `=== "on"`：
+ *    没存过（新用户）、值被改坏、读不出来 —— 全都应该显示图标。
+ *    桌面空着对用户没有任何好处。
+ */
+function readShowIcons(): boolean {
+  if (typeof localStorage === "undefined") return true;
+  return localStorage.getItem(KEY_SHOW_ICONS) !== "off";
+}
+
+function readItems(iconSize: IconSize): DesktopItem[] {
   if (typeof localStorage === "undefined") return defaultItems();
 
   try {
@@ -271,18 +308,14 @@ function readItems(): DesktopItem[] {
     if (!Array.isArray(parsed)) return defaultItems();
 
     /**
-     * ⚠️⚠️ 只保留内置应用 —— 「创建快捷方式」这个功能暂时下线了。
+     * ⚠️ 这里【不再】过滤掉快捷方式 —— 「创建快捷方式」功能已经恢复。
      *
-     *    为什么必须过滤，而不是"留着反正也能用"：
-     *      桌面快捷方式原本靠右键菜单里的「删除」移除。
-     *      现在菜单只剩「排列图标」，那些 post: / url: 图标就变成
-     *      【删不掉的幽灵】—— 一直杵在那儿，双击还能打开，
-     *      但用户没有任何办法把它移走，只能清 localStorage。
-     *
-     *    留着它们才是真的坑，所以这里一次性清掉。
-     *    以后功能恢复时，把下面这个 .filter 去掉即可。
+     *    中间有一版把这个功能下线了，为了不留下"删不掉的幽灵图标"，
+     *    曾经在这里 .filter(i => i.kind === "app")。
+     *    现在菜单里有「新建」也有「删除」，快捷方式是正常的桌面住户，
+     *    再过滤就等于把用户建的东西全删了。
      */
-    const items = parsed.filter(isValidItem).filter((i) => i.kind === "app");
+    const items = parsed.filter(isValidItem);
     if (!items.length) return defaultItems();
 
     /**
@@ -298,7 +331,7 @@ function readItems(): DesktopItem[] {
       }
     }
 
-    return sanitize(items);
+    return sanitize(items, rowsPerColumn(CELL_SIZES[iconSize].h));
   } catch {
     // 值被改坏了 —— 退回默认，别让整个桌面打不开
     return defaultItems();
@@ -355,6 +388,12 @@ interface DesktopStore {
   /** 打开模态框时预选的类型（右键菜单里点不同的项进来） */
   modalKind: "post" | "url";
 
+  /** 图标大小档位（右键菜单「查看」里切换） */
+  iconSize: IconSize;
+
+  /** 是否显示桌面图标。藏起来之后靠右键菜单还能再打开 */
+  showIcons: boolean;
+
   /** 客户端挂载后调用，把 localStorage 里的真实数据读进来 */
   hydrate: () => void;
 
@@ -365,6 +404,17 @@ interface DesktopStore {
 
   openModal: (kind: "post" | "url") => void;
   closeModal: () => void;
+
+  /**
+   * 切换图标大小。
+   *
+   * ⚠️ 会顺带重新整理位置：格子尺寸变了，一列能放几个也变了，
+   *    原本靠下的图标可能越界，必须重新分配。
+   */
+  setIconSize: (size: IconSize) => void;
+
+  /** 显示 / 隐藏桌面图标 */
+  setShowIcons: (on: boolean) => void;
 
   /**
    * 加一个快捷方式。
@@ -395,7 +445,15 @@ interface DesktopStore {
 export const useDesktopStore = create<DesktopStore>((set, get) => {
   /** 改 items 之后统一走这里：写盘 + 更新内存，避免漏掉其中一个 */
   const commit = (items: DesktopItem[]) => {
-    const fixed = sanitize(items);
+    /**
+     * ⚠️ 每次 commit 都按【当前图标档位】重新算行数。
+     *
+     *    格子高度变了，一列能放几个也变了：
+     *      md 档 1080p 能放 11 行，lg 档只能放 9 行。
+     *    用过期行数去 sanitize，会把本来合法的图标也挪走。
+     */
+    const rows = rowsPerColumn(CELL_SIZES[get().iconSize].h);
+    const fixed = sanitize(items, rows);
     writeItems(fixed);
     set({ items: fixed });
   };
@@ -406,16 +464,28 @@ export const useDesktopStore = create<DesktopStore>((set, get) => {
     menu: null,
     modalOpen: false,
     modalKind: "post",
+    iconSize: "md",
+    showIcons: true,
 
     /**
-     * ⚠️ 初值是空数组，真实数据在客户端挂载后由 hydrate() 读进来。
+     * ⚠️ 初值给安全值，真实数据在客户端挂载后由 hydrate() 读进来。
      *
      *    不能在这里直接 readItems() —— 这个模块在【构建期】也会被加载，
      *    那时没有 localStorage。虽然 readItems 里判了 typeof，
-     *    但更稳的做法是"初值给安全值、客户端再校正"，
+     *    但更稳的做法是"初值给安全默认、客户端再校正"，
      *    和 useAppearance / i18n store 是同一个套路。
+     *
+     * ⚠️ hydrate 里必须先读 iconSize，再读 items ——
+     *    readItems 要用档位算网格行数，顺序反了会用错档位去 sanitize。
      */
-    hydrate: () => set({ items: readItems() }),
+    hydrate: () => {
+      const iconSize = readIconSize();
+      set({
+        iconSize,
+        showIcons: readShowIcons(),
+        items: readItems(iconSize),
+      });
+    },
 
     select: (id) => set({ selectedId: id }),
 
@@ -434,6 +504,33 @@ export const useDesktopStore = create<DesktopStore>((set, get) => {
 
     openModal: (kind) => set({ modalOpen: true, modalKind: kind, menu: null }),
     closeModal: () => set({ modalOpen: false }),
+
+    setIconSize: (size) => {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(KEY_ICON_SIZE, size);
+      }
+
+      /**
+       * ⚠️ 必须重新 sanitize。
+       *
+       *    格子高度变了，一列能放几个图标也变了 ——
+       *    md 档在 1080p 上能放 11 行，切到 lg 档只有 9 行。
+       *    原来在第 10、11 行的图标就"越界"了，必须挪到上面的空位。
+       */
+      const rows = rowsPerColumn(CELL_SIZES[size].h);
+      const items = sanitize(get().items, rows);
+      writeItems(items);
+
+      // menu: null —— 选完档位顺手关菜单
+      set({ items, iconSize: size, menu: null });
+    },
+
+    setShowIcons: (on) => {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(KEY_SHOW_ICONS, on ? "on" : "off");
+      }
+      set({ showIcons: on, menu: null });
+    },
 
     addShortcut: ({ kind, name, icon, target }) => {
       const items = get().items;
@@ -458,7 +555,8 @@ export const useDesktopStore = create<DesktopStore>((set, get) => {
         return;
       }
 
-      const slot = findFreeSlot(items);
+      // ⚠️ 传 rows：空位是按"当前档位下一列能放几个"算的
+      const slot = findFreeSlot(items, undefined, rowsPerColumn(CELL_SIZES[get().iconSize].h));
       if (!slot) {
         // 网格满了。这里只是不添加，界面上的提示由调用方负责
         console.warn("[desktop] 桌面已放满，无法再添加图标。可以调大 GRID.maxCols。");
@@ -536,9 +634,12 @@ export const useDesktopStore = create<DesktopStore>((set, get) => {
         return (a.name ?? "").localeCompare(b.name ?? "", "zh-CN");
       });
 
+      // ⚠️ 行数按当前图标档位算一次，循环里复用
+      const rows = rowsPerColumn(CELL_SIZES[get().iconSize].h);
+
       // 一个个重新分配位置 —— findFreeSlot 会自然地把空洞填上
       for (const item of ordered) {
-        const slot = findFreeSlot(free);
+        const slot = findFreeSlot(free, undefined, rows);
         if (!slot) break;
         free.push({ ...item, position: slot });
       }

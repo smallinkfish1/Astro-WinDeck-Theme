@@ -3,6 +3,7 @@ import {
   useDesktopStore,
   GRID,
   TASKBAR_H,
+  CELL_SIZES,
   rowsPerColumn,
   type DesktopItem,
   type GridPos,
@@ -10,7 +11,9 @@ import {
 import { findApp } from "../../config/apps";
 import { useT } from "../../i18n";
 import type { Dict } from "../../i18n/types";
+import type { ClientPost } from "../../lib/markdown";
 import ContextMenu from "./ContextMenu";
+import ShortcutModal from "./ShortcutModal";
 
 /**
  * 桌面图标层（React 版）
@@ -18,7 +21,7 @@ import ContextMenu from "./ContextMenu";
  *
  * ⚠️⚠️ 这一层以前是 Astro 在【构建期】渲染的静态 HTML，靠
  *    DesktopLayout 里一段裸 JS 监听双击。换 React 是为了有状态：
- *    拖动要记位置、右键要开菜单。
+ *    拖动要记位置、右键要开菜单、图标要能增删。
  *
  * ── 布局 ──
  *
@@ -29,18 +32,19 @@ import ContextMenu from "./ContextMenu";
  *
  * ── 拖动为什么用 Pointer Events 而不是 mouse + touch 两套 ──
  *
- *   Pointer Events 把鼠标、触摸、触控笔统一成一套 API：
- *   同一个 onPointerDown 在三种设备上都触发，省掉判断设备类型的麻烦。
+ *   Pointer Events 把鼠标、触摸、触控笔统一成一套 API。
  *   而且 setPointerCapture 能保证"鼠标快速移出元素"时
  *   后续事件仍然发给这个元素 —— 用 mouse 事件的话，
  *   甩一下就丢 pointerup，图标会卡在拖动状态。
  */
-export default function DesktopIcons() {
+export default function DesktopIcons({ posts }: { posts: ClientPost[] }) {
   const items = useDesktopStore((s) => s.items);
   const hydrate = useDesktopStore((s) => s.hydrate);
   const select = useDesktopStore((s) => s.select);
   const openMenu = useDesktopStore((s) => s.openMenu);
   const moveItem = useDesktopStore((s) => s.moveItem);
+  const iconSize = useDesktopStore((s) => s.iconSize);
+  const showIcons = useDesktopStore((s) => s.showIcons);
 
   /**
    * ⚠️ 客户端挂载后才读 localStorage。
@@ -53,11 +57,26 @@ export default function DesktopIcons() {
     hydrate();
   }, [hydrate]);
 
-  /** 双击一个图标 —— 目前桌面只有内置应用，但保留分支好以后扩展 */
+  /** 双击一个图标 —— 按类型分流到不同的打开方式 */
   const launch = (item: DesktopItem) => {
     if (item.kind === "app") {
       const app = findApp(item.appId ?? "");
       if (!app) return;
+
+      /**
+       * ⚠️ pageOnly：直接打开静态页，【不进窗口系统】。
+       *
+       *    和下面的 CustomEvent 是两条完全不同的路：
+       *      pageOnly  → 新标签页，有导航栏/页脚/主题切换
+       *      其他      → 桌面窗口，没有那些
+       *
+       *    window.open 在 dblclick 里调用，属于用户手势，
+       *    不会被浏览器的弹窗拦截器挡掉。
+       */
+      if (app.pageOnly) {
+        window.open(app.path, "_blank", "noopener,noreferrer");
+        return;
+      }
 
       /**
        * ⚠️ 走 CustomEvent 而不是直接调 windowStore。
@@ -73,11 +92,6 @@ export default function DesktopIcons() {
       return;
     }
 
-    /**
-     * ⚠️ 下面两个分支目前【走不到】——「创建快捷方式」功能暂时下线，
-     *    readItems() 会把非 app 的项全部过滤掉。
-     *    留着是为了以后恢复功能时不用重写这段。
-     */
     if (item.kind === "post") {
       window.dispatchEvent(
         new CustomEvent("os:open-post", {
@@ -93,6 +107,8 @@ export default function DesktopIcons() {
     }
   };
 
+  const cell = CELL_SIZES[iconSize];
+
   return (
     <>
       {/*
@@ -104,20 +120,25 @@ export default function DesktopIcons() {
 
            ⚠️ 别给它加 z-index。加了就要保证比 10 小，
               否则窗口会被图标层盖住、点不动。
+
+        ⚠️ 即使 showIcons 为 false，这个容器【也必须存在】。
+           否则图标藏起来之后，桌面空白处没有元素接右键，
+           菜单就再也调不出来，用户只能清 localStorage 才能恢复。
       */}
       <div
         className="absolute inset-0"
         onContextMenu={(e) => {
           /**
-           * ⚠️ 整个桌面（含图标）统一在这里处理右键。
+           * ⚠️ 这里只处理【空白处】的右键。
            *
-           *    图标上不再单独绑 onContextMenu —— 以前那么做是因为
-           *    图标右键要多出「删除」，现在没有那项了，
-           *    统一冒泡上来处理更简单，也不会漏掉某个子元素。
+           *    图标自己的 onContextMenu 会 stopPropagation，
+           *    所以点到图标时根本走不到这里 —— 那边要"先选中再开菜单",
+           *    因为菜单里的「删除」依赖 selectedId。
            *
            *    preventDefault 是必须的：不拦的话，在"桌面"上右键会弹出
            *    浏览器的「检查元素 / 另存为 / 翻译成中文」，非常出戏。
            */
+          if (e.target === e.currentTarget) select(null);
           e.preventDefault();
           openMenu(e.clientX, e.clientY);
         }}
@@ -126,13 +147,22 @@ export default function DesktopIcons() {
           if (e.target === e.currentTarget) select(null);
         }}
       >
-        {items.map((item) => (
-          <DesktopIcon key={item.id} item={item} onLaunch={launch} onMove={moveItem} />
-        ))}
+        {showIcons &&
+          items.map((item) => (
+            <DesktopIcon
+              key={item.id}
+              item={item}
+              cell={cell}
+              onLaunch={launch}
+              onMove={moveItem}
+            />
+          ))}
       </div>
 
-      {/* 右键菜单挂在 body 上（内部用 portal），放这里只为跟着一起挂载 */}
+      {/* 右键菜单和「新建快捷方式」模态框都挂在 body 上（内部用 portal），
+          放这里只是为了跟着图标层一起挂载 */}
       <ContextMenu />
+      <ShortcutModal posts={posts} />
     </>
   );
 }
@@ -147,18 +177,18 @@ export default function DesktopIcons() {
  * ⚠️ 为什么必须有这个阈值：
  *    光看"按下"和"松开"分不清点击和拖动。手抖 2 像素就判定成拖动的话，
  *    用户想选中图标，结果图标被挪走了一格 —— 非常恼人。
- *
- *    4px 是经验值：小于它，正常点击也容易误触；大于它，用户会觉得
- *    "我都拖了这么远还没动"。
  */
 const DRAG_THRESHOLD = 4;
 
 function DesktopIcon({
   item,
+  cell,
   onLaunch,
   onMove,
 }: {
   item: DesktopItem;
+  /** 当前图标档位的格子尺寸。由父组件传下来，避免每个图标都去订阅 store */
+  cell: { w: number; h: number; icon: number; font: number };
   onLaunch: (item: DesktopItem) => void;
   onMove: (id: string, to: GridPos) => void;
 }) {
@@ -166,6 +196,7 @@ function DesktopIcon({
 
   const selectedId = useDesktopStore((s) => s.selectedId);
   const select = useDesktopStore((s) => s.select);
+  const openMenu = useDesktopStore((s) => s.openMenu);
 
   /** 内置应用去注册表查；快捷方式直接读存在 item 里的 */
   const app = item.kind === "app" ? findApp(item.appId ?? "") : undefined;
@@ -204,19 +235,18 @@ function DesktopIcon({
    *
    * ⚠️ 为什么用 setTimeout(0) 清零而不是立刻清零：
    *    事件顺序是 pointerup → mouseup → click，都在同一个任务里同步派发。
-   *    setTimeout 排到下一个任务，所以 click 处理时它还是 true，
-   *    等下一轮事件循环才清掉 —— 刚好。
+   *    setTimeout 排到下一个任务，所以 click 处理时它还是 true。
    */
   const swallowClick = useRef(false);
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    // 只处理左键。右键交给容器的 onContextMenu，中键忽略
+    // 只处理左键。右键交给 onContextMenu，中键忽略
     if (e.button !== 0) return;
 
     /**
      * ⚠️ setPointerCapture 是拖动不丢事件的关键。
      *
-     *    不设的话，鼠标一旦移出这个 88×92 的小方块，
+     *    不设的话，鼠标一旦移出这个格子，
      *    pointermove 就不再发给它 —— 拖动会中途"断掉"，
      *    松手也收不到 pointerup，图标永远卡在半路。
      */
@@ -267,36 +297,32 @@ function DesktopIcon({
 
     /**
      * ⚠️ 松手位置在任务栏上 = 放弃这次拖动。
-     *
-     *    不判的话，图标会被算到网格最下面一行，看起来像"被吸过去了"。
      *    Windows 里把图标拖到任务栏也是取消，不是吸附。
      */
     if (e.clientY > window.innerHeight - TASKBAR_H) return;
 
     /**
      * ⚠️ 位移用【松手时】的坐标减起点，而不是取最后一次 pointermove 的值。
-     *
-     *    快速甩动时，最后一次 pointermove 的坐标和 pointerup 会差几像素，
-     *    用松手位置更贴近用户"最后停在哪"的直觉。
+     *    快速甩动时两者会差几像素，用松手位置更贴近用户"最后停在哪"的直觉。
      */
     const dx = e.clientX - g.x;
     const dy = e.clientY - g.y;
 
     // 图标左上角的像素位置 + 本次位移 = 松手时它应该在的位置
-    const left = GRID.padX + item.position.col * GRID.cellW + dx;
-    const top = GRID.padY + item.position.row * GRID.cellH + dy;
+    const left = GRID.padX + item.position.col * cell.w + dx;
+    const top = GRID.padY + item.position.row * cell.h + dy;
 
     /**
      * ⚠️ Math.round = 网格吸附。
      *    除以格子尺寸之后四舍五入，就是"离哪一格最近就归哪一格"。
-     *    不做的话图标会停在两个格子中间的尴尬位置。
      */
-    const col = Math.round((left - GRID.padX) / GRID.cellW);
-    const row = Math.round((top - GRID.padY) / GRID.cellH);
+    const col = Math.round((left - GRID.padX) / cell.w);
+    const row = Math.round((top - GRID.padY) / cell.h);
 
     const target: GridPos = {
       col: Math.min(Math.max(col, 0), GRID.maxCols - 1),
-      row: Math.min(Math.max(row, 0), rowsPerColumn() - 1),
+      // ⚠️ 行数按当前档位的格子高度算 —— 大图标档位一列放得少
+      row: Math.min(Math.max(row, 0), rowsPerColumn(cell.h) - 1),
     };
 
     // 原地放下：不写盘（省一次 localStorage 写入）
@@ -306,7 +332,6 @@ function DesktopIcon({
      * ⚠️ 真正的落格交给 store.moveItem()，它负责：
      *    · 目标格被占 → 和对方交换位置（Windows 的行为）
      *    · 写 localStorage
-     *    组件这边不直接改 position，避免两个地方都能改状态。
      */
     onMove(item.id, target);
   };
@@ -327,31 +352,24 @@ function DesktopIcon({
       /**
        * ⚠️ 绝对定位 + 手算像素。
        *
-       *    网格坐标 → 像素只在这一处发生转换（col * cellW）。
-       *    store、拖动逻辑一律只认 col/row，这样"换屏幕尺寸"时
-       *    不存在"存的像素失效"的问题。
+       *    网格坐标 → 像素只在这一处发生转换（col * cell.w）。
+       *    store、拖动逻辑一律只认 col/row，这样"换屏幕尺寸"、
+       *    "换图标大小"时都不存在"存的像素失效"的问题。
        */
       style={{
-        left: GRID.padX + item.position.col * GRID.cellW,
-        top: GRID.padY + item.position.row * GRID.cellH,
-        width: GRID.cellW,
-        height: GRID.cellH,
+        left: GRID.padX + item.position.col * cell.w,
+        top: GRID.padY + item.position.row * cell.h,
+        width: cell.w,
+        height: cell.h,
         // 拖动中只动 transform，不动 left/top —— 后者会触发整层重排
         transform: drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined,
         /**
          * ⚠️⚠️ 拖动中禁用过渡；松手后【也不要】给 left/top 加过渡。
          *
-         *    为什么松手后不能加：
-         *      松手那一刻，left 从旧值改到新值、transform 从 (dx,dy) 归零。
-         *      两者视觉上的总和是连续的（旧+位移 = 新），
-         *      但如果给 left 加了 120ms 过渡、transform 却是瞬间归零，
-         *      就会出现 t=0 时「left 还在旧值、transform 已经归零」
-         *      → 图标先弹回原位，再滑到新位置。那一下很难看。
-         *
-         *    不加过渡 = 瞬间吸附。这也正是 Win10 桌面的手感。
-         *
-         *    颜色过渡由 className 里的 transition-colors 负责，
-         *    它只管 background-color，不碰 left/top，所以不冲突。
+         *    松手那一刻 left 改新值、transform 归零，两者视觉总和是连续的。
+         *    但如果给 left 加 120ms 过渡、transform 却瞬间归零，
+         *    就会出现"图标先弹回原位、再滑到新位置"的闪烁。
+         *    不加过渡 = 瞬间吸附，正是 Win10 的手感。
          */
         transition: drag ? "none" : undefined,
         zIndex: drag ? 30 : undefined,
@@ -368,6 +386,18 @@ function DesktopIcon({
         if (swallowClick.current) return;
         onLaunch(item);
       }}
+      onContextMenu={(e) => {
+        /**
+         * ⚠️ 图标上的右键必须 stopPropagation。
+         *
+         *    不拦的话会冒泡到桌面容器，那里会 select(null) ——
+         *    刚选中的图标立刻被取消，菜单里的「删除」就闪没了。
+         */
+        e.preventDefault();
+        e.stopPropagation();
+        select(item.id);
+        openMenu(e.clientX, e.clientY);
+      }}
       onKeyDown={(e) => {
         // 键盘可达：回车/空格 = 打开（键盘用户没有"双击"）
         if (e.key === "Enter" || e.key === " ") {
@@ -379,54 +409,58 @@ function DesktopIcon({
       onPointerMove={onPointerMove}
       onPointerUp={endGesture}
       onPointerCancel={cancelGesture}
-      className={`absolute flex cursor-default select-none touch-none flex-col items-center gap-1.5
-                  rounded p-2 transition-colors
+      className={`absolute flex cursor-default select-none touch-none flex-col items-center justify-center gap-1
+                  rounded p-1.5 transition-colors
                   ${drag ? "cursor-grabbing will-change-transform" : ""}
                   ${selected ? "bg-white/25 outline outline-1 outline-white/50" : "hover:bg-white/15"}
                   focus:outline-none focus-visible:bg-white/25`}
     >
-      <div className="grid h-11 w-11 place-items-center">
+      <div className="grid place-items-center" style={{ height: cell.icon }}>
         {isImg ? (
           <img
             src={icon}
             alt=""
-            width="44"
-            height="44"
+            style={{ width: cell.icon, height: cell.icon }}
             /**
              * ⚠️ draggable="false" 必须写。
              *    不写的话，按住图片会触发浏览器【原生图片拖拽】——
-             *    你会看到一个半透明的图片跟着鼠标飞，而我们的拖动逻辑
-             *    同时也在跑，两个影子叠在一起。
+             *    你会看到一个半透明的图片跟着鼠标飞，
+             *    而我们的拖动逻辑同时也在跑，两个影子叠在一起。
              */
             draggable="false"
-            className="pointer-events-none h-11 w-11 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]"
+            className="pointer-events-none object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]"
           />
         ) : (
-          <span className="pointer-events-none text-[30px] leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]">
+          <span
+            className="pointer-events-none leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.5)]"
+            /* emoji 的字号 ≈ 图标尺寸的 0.68 倍时视觉上刚好填满 */
+            style={{ fontSize: Math.round(cell.icon * 0.68) }}
+          >
             {icon}
           </span>
         )}
       </div>
 
       <span
-        className="pointer-events-none line-clamp-2 text-center text-[12px] leading-tight text-white
+        className="pointer-events-none line-clamp-2 w-full text-center leading-tight text-white
                    [overflow-wrap:anywhere] [text-shadow:0_1px_3px_rgba(0,0,0,.95)]"
+        style={{ fontSize: cell.font }}
       >
         {label}
       </span>
 
       {/*
-        ⚠️ 外部链接的小箭头 —— 目前走不到（快捷方式功能下线），
-           留着是为了以后恢复。
+        ⚠️ 外部链接的小箭头 —— Windows 区分"普通图标"和"快捷方式"的方式。
+           需求里说"可以加一个小箭头或者不同的底色"，这里两个都做了：
+           小箭头 + 半透明黑底（保证在浅色壁纸上也看得见）。
 
-        ⚠️ 图标内部一律 pointer-events-none：
-           不然 pointerdown 的 target 会是 img/span 而不是 button。
-           统一让 button 接事件最省心。
+        ⚠️ 不加在"文章快捷方式"上，因为它打开的是站内窗口，
+           不是"跳去别的地方"，加箭头反而误导。
       */}
       {item.kind === "url" && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-[26px] left-[18px] grid h-[13px] w-[13px]
+          className="pointer-events-none absolute bottom-[22%] left-[14%] grid h-[13px] w-[13px]
                      place-items-center rounded-[2px] bg-black/55 text-[8px] leading-none text-white
                      shadow-[0_1px_2px_rgba(0,0,0,.4)]"
         >

@@ -1,5 +1,6 @@
 ---
 import DesktopIcons from "./DesktopIcons.tsx";
+import type { ClientPost } from "../../lib/markdown";
 
 /**
  * 桌面图标层。
@@ -10,17 +11,17 @@ import DesktopIcons from "./DesktopIcons.tsx";
  *   DesktopIcon.astro 循环渲染。中英文靠"两份都写进 HTML、
  *   用 CSS 的 html[lang] 选择器显示其中一份"来切换。
  *
- *   但拖动需要状态，静态 HTML 做不到。所以整块换成了 React 组件
- *   （DesktopIcons.tsx），图标清单也不再手写 —— 唯一的真相在
- *   config/apps.ts。
+ *   但拖动、右键菜单、动态创建快捷方式都需要状态，静态 HTML 做不到。
+ *   所以整块换成了 React 组件（DesktopIcons.tsx），
+ *   图标清单也不再手写 —— 内置应用来自 config/apps.ts。
  *
  *   顺带的好处：双语改成直接用 t()，那套 CSS 切换技巧不再需要。
  *
- * ── 为什么不再传 posts ──
+ * ── 为什么又要传 posts ──
  *
- *   「创建快捷方式」功能暂时下线了，桌面图标层不需要文章列表。
- *   少传这一份 props，首屏 JSON 也能小一点（虽然影响很小，
- *   但没必要留着不用的数据）。
+ *   「新建快捷方式」模态框要从已发布的文章里挑一篇。
+ *   列表由 Astro 在构建期算好、序列化进来 ——
+ *   岛屿里不能调 getPosts()，那依赖 astro:content 的编译期机制。
  *
  * ── 这里为什么还留一层 div ──
  *
@@ -30,8 +31,13 @@ import DesktopIcons from "./DesktopIcons.tsx";
  *      不能指望隔着 astro-island 找到 body。
  *      所以这里显式给一层 absolute inset-0 的盒子。
  */
+interface Props {
+  /** 已发布的文章。「新建文章快捷方式」的列表要从里面选 */
+  posts: ClientPost[];
+}
+const { posts } = Astro.props;
 ---
 
 <div class="absolute inset-0">
-  <DesktopIcons client:only="react" />
+  <DesktopIcons client:only="react" posts={posts} />
 </div>

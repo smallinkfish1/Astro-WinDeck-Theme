@@ -78,6 +78,22 @@ export interface AppDef {
    *    不会开桌面窗口，也不参与 URL 同步。
    */
   external?: boolean;
+
+  /**
+   * 只打开静态页，不进窗口系统。
+   *
+   * ⚠️ 为 true 时点开是 window.open(path, "_blank")：
+   *    不开桌面窗口、不动地址栏、不参与窗口去重。
+   *
+   *    适合「这里本来就有一个完整网页」的入口 ——
+   *    比如 /posts 列表页：它有自己的顶部导航、页脚、主题切换，
+   *    塞进窗口里反而会丢掉这些。
+   *
+   * ⚠️ 和 external 的区别：
+   *      external  → 跳到站外（GitHub、B站）
+   *      pageOnly  → 打开站内的静态页，但不开窗口
+   */
+  pageOnly?: boolean;
 }
 
 /**
@@ -139,9 +155,20 @@ export const APPS: AppDef[] = [
   },
   {
     id: "posts",
-    nameKey: "app.posts",
+    nameKey: "app.allPosts",
     icon: "📚",
     path: "/posts",
+    /**
+     * ⚠️ 这个应用有【两副面孔】，这里选的是静态页那副。
+     *
+     *    /posts 静态页有自己的顶部导航、页脚、主题切换，
+     *    而窗口版（case "posts" → ArchiveView）没有这些。
+     *    桌面图标要的是"进入那个完整页面"，所以走 pageOnly。
+     *
+     * ⚠️ 窗口层的 case "posts" 分支仍然保留 ——
+     *    从文章列表里点「全部文章」之类的入口还会用到它。
+     */
+    pageOnly: true,
   },
 
   /* ── 还没实现的（入口保留，点开是占位页）── */
@@ -174,13 +201,22 @@ export const APPS: AppDef[] = [
 ];
 
 /**
- * 桌面上的五个图标。
+ * 桌面上的图标。
  *
- * ⚠️ 顺序 = 从左到右、从上到下的显示顺序。
- *    Desktop.astro 的网格是一列五行的，所以这五项正好排满一列。
- *    加第六个图标时要记得同时调整那边的行数。
+ * ⚠️ 顺序 = 显示顺序。网格是「先往下排、排满了才往右开新列」，
+ *    所以这六项在常见屏幕上是一列排完。
+ *
+ * ⚠️ 屏幕矮的时候（一列放不下六个）后几个会自动排到第二列，
+ *    sanitize() 会处理 —— 不会出现"图标跑到屏幕外、看不见也删不掉"。
  */
-export const DESKTOP_APP_IDS = ["pc", "notepad", "browser", "recycle", "control"];
+export const DESKTOP_APP_IDS = [
+  "pc",
+  "notepad",
+  "browser",
+  "recycle",
+  "control",
+  "posts",
+];
 
 /**
  * 开始菜单左上角「最近添加」。

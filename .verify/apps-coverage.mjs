@@ -76,7 +76,7 @@ function parseApps() {
 
     const id = t.match(/^id:\s*"([^"]+)",?$/);
     if (id) {
-      cur = { id: id[1], ready: true, external: false };
+      cur = { id: id[1], ready: true, external: false, pageOnly: false };
       apps.push(cur);
       continue;
     }
@@ -94,6 +94,7 @@ function parseApps() {
     }
     if (/^ready:\s*false,?$/.test(t)) cur.ready = false;
     if (/^external:\s*true,?$/.test(t)) cur.external = true;
+    if (/^pageOnly:\s*true,?$/.test(t)) cur.pageOnly = true;
   }
 
   return apps;
@@ -174,7 +175,17 @@ const wmSrc = read("src/components/window/WindowManager.tsx");
 const windowCases = new Set([...wmSrc.matchAll(/case\s+"([^"]+)":/g)].map((m) => m[1]));
 
 const windowApps = apps.filter((a) => !a.external && a.ready);
-const noBranch = windowApps.filter((a) => !windowCases.has(a.id));
+
+/**
+ * ⚠️ pageOnly 的应用【不需要】窗口分支 ——
+ *    它们打开的是静态页，根本不进窗口系统。
+ *    （比如 posts：桌面图标开 /posts 网页，不开窗口）
+ *
+ * ⚠️ 但第 7 条仍然要检查它们的 path：
+ *    打开静态页这条路上，路径写错一样是 404。
+ */
+const appsNeedingWindow = windowApps.filter((a) => !a.pageOnly);
+const noBranch = appsNeedingWindow.filter((a) => !windowCases.has(a.id));
 check(
   "已实现的应用，窗口层都有对应分支",
   noBranch.length === 0,
