@@ -1,6 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { readingMinutes, renderMarkdown, type ClientPost } from "../../../lib/markdown";
+import {
+  readingMinutes,
+  renderMarkdown,
+  extractToc,
+  type ClientPost,
+} from "../../../lib/markdown";
 import { useT, fmtDate } from "../../../i18n";
+import Toc from "./Toc";
 
 /**
  * 「记事本」窗口 —— 仿 Win10 Notepad 读文章。
@@ -50,6 +56,18 @@ import { useT, fmtDate } from "../../../i18n";
 const KEY_NOTEPAD_VIEW = "win10-blog:notepad-view";
 /** 居中阅读开关。和视图模式分开存，两者互不影响 */
 const KEY_NOTEPAD_CENTER = "win10-blog:notepad-center";
+
+/**
+ * 窗口至少这么宽，才在右侧显示目录。
+ *
+ * ⚠️ 为什么不做成"一直显示、内容自己挤"：
+ *    窗口窄的时候（比如 600px），正文 400px + 目录 190px，
+ *    正文会被挤成一条细线，还不如没有目录。
+ *    窄窗口下自动隐藏，用户把窗口拉宽就会自己出现。
+ *
+ * 900 = 720（正文舒适宽度）+ 190（目录）+ 左右内边距。
+ */
+const TOC_MIN_WIDTH = 900;
 
 /** 读上次的视图模式。默认渲染视图（true） */
 function getSavedRendered(): boolean {
@@ -198,6 +216,16 @@ export default function NotepadView({
    *    代码需要宽度，一行被折断比没有留白难受得多。
    */
   const [centered, setCentered] = useState(() => getSavedCentered());
+
+  /**
+   * 显示目录。
+   *
+   * ⚠️ 默认开。但真正显示还要满足两个条件：
+   *    渲染视图 + 窗口够宽（TOC_MIN_WIDTH）。
+   *    这样用户不用先去菜单里"发现"这个功能 ——
+   *    把窗口拉宽，目录自己就出来了。
+   */
+  const [tocOpen, setTocOpen] = useState(true);
   /** 菜单栏展开的是哪一项，null 表示都收起 */
   const [menu, setMenu] = useState<string | null>(null);
 
@@ -276,6 +304,17 @@ export default function NotepadView({
    */
   const html = useMemo(
     () => (rendered && article ? renderMarkdown(article.body) : ""),
+    [rendered, article]
+  );
+
+  /**
+   * 目录项（从正文的标题里抽）。
+   *
+   * ⚠️ 和 html 一样，只在渲染视图下算 ——
+   *    源码视图里没有"标题"这个概念，算出来也没地方用。
+   */
+  const tocItems = useMemo(
+    () => (rendered && article ? extractToc(article.body) : []),
     [rendered, article]
   );
 
@@ -365,6 +404,38 @@ export default function NotepadView({
    *    置灰 + 快捷键无效，两处都堵上。
    */
   const rootRef = useRef<HTMLDivElement>(null);
+
+  /** 正文的滚动容器 —— 点目录项时 TOC 要靠它去找标题位置 */
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * 窗口够不够宽放目录。
+   *
+   * ⚠️ 为什么用 ResizeObserver 而不是 window.innerWidth：
+   *    目录该不该显示，取决于【这个窗口】有多宽，不是浏览器窗口。
+   *    用户把记事本窗口拖窄时，innerWidth 一点没变。
+   *
+   * ⚠️ 为什么先手动 update() 一次：
+   *    ResizeObserver 只在尺寸【变化】时回调。
+   *    组件刚挂载时尺寸没有"变化"，要是不先算一次，
+   *    目录会一直藏着，直到用户去拖一下窗口才出现。
+   */
+  const [wideEnough, setWideEnough] = useState(false);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+
+    const update = () => setWideEnough(el.clientWidth >= TOC_MIN_WIDTH);
+    update();
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  /** 三个条件同时成立才真的显示：渲染视图、开关开着、窗口够宽 */
+  const showToc = rendered && tocOpen && wideEnough;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "F9") return;
@@ -471,6 +542,17 @@ export default function NotepadView({
           label: t("np.centerReading"),
           check: centered,
           run: rendered ? () => setCentered((v) => !v) : undefined,
+        },
+        /*
+          ⚠️ 目录开关。同样是"渲染视图下才有意义"。
+             ⚠️ 但开关本身不判断宽度 —— 窗口窄的时候开了也不显示，
+                用户把窗口拉宽就自动出现。这样开关状态和"看不看得见"
+                是两个独立的东西，不会让人觉得"我开了但没反应"。
+        */
+        {
+          label: t("np.showToc"),
+          check: tocOpen,
+          run: rendered ? () => setTocOpen((v) => !v) : undefined,
         },
         { label: "—" },
         { label: t("np.prev"), run: () => goto(-1) },
@@ -592,16 +674,39 @@ export default function NotepadView({
           ⚠️ 换用 .md-body 这个类，和静态文章页、ArticleView 共用同一套
              排版规则。三处正文长得一样，改一处全都跟着变。
         */
-        <div className="win-body min-h-0 flex-1 overflow-auto bg-[var(--surface)] p-4">
-          {/*
-            ⚠️ 居中靠 mx-auto + max-w，不需要额外的包裹层。
-            ⚠️ 720px 是一行约 75-80 个汉字的宽度。
-               窗口比这窄时 max-w 会自动收缩，不会出现横向滚动。
-          */}
+        <div className="flex min-h-0 flex-1">
           <div
-            className={`md-body ${centered ? "mx-auto max-w-[720px]" : ""}`}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+            ref={bodyRef}
+            className="win-body min-h-0 flex-1 overflow-auto bg-[var(--surface)] p-4"
+          >
+            {/*
+              ⚠️ 居中靠 mx-auto + max-w，不需要额外的包裹层。
+              ⚠️ 720px 是一行约 75-80 个汉字的宽度。
+                 窗口比这窄时 max-w 会自动收缩，不会出现横向滚动。
+            */}
+            <div
+              className={`md-body ${centered ? "mx-auto max-w-[720px]" : ""}`}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          </div>
+
+          {/*
+            ── 目录 ──
+
+            ⚠️ 只在 showToc 为真时渲染（渲染视图 + 开关开 + 窗口够宽）。
+               窄窗口下自动消失，不抢占正文空间。
+
+            ⚠️ scrollRef 传 bodyRef（正文的滚动容器），
+               不是根元素 —— TOC 要靠它算"当前读到哪一节"。
+          */}
+          {showToc && (
+            <aside
+              className="w-[190px] shrink-0 overflow-y-auto border-l border-[var(--surface-border)]
+                         bg-[var(--surface)] px-3 py-4"
+            >
+              <Toc items={tocItems} scrollRef={bodyRef} />
+            </aside>
+          )}
         </div>
       ) : (
         /*

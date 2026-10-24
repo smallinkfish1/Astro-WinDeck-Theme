@@ -183,6 +183,8 @@ export interface Dict {
   "np.sourceViewShort": string;
   /** 「查看」菜单里的居中阅读开关 */
   "np.centerReading": string;
+  /** 「查看」菜单里的目录开关 */
+  "np.showToc": string;
 
   /* ── 浏览器 ── */
   "bv.back": string;

@@ -145,6 +145,7 @@ export const en: DictMap = {
   "np.renderedViewShort": "Rendered view",
   "np.sourceViewShort": "Source view",
   "np.centerReading": "Centered reading",
+  "np.showToc": "Show outline",
 
   /* ── Blog Explorer ── */
   "bv.back": "Back",

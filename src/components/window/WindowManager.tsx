@@ -13,8 +13,6 @@ import {
 } from "../../lib/settings-sections";
 import { DESKTOP_APP_IDS, appsOf, findApp } from "../../config/apps";
 import Window from "./Window";
-import ArticleView from "./views/ArticleView";
-import ArchiveView from "./views/ArchiveView";
 import DraftsView from "./views/DraftsView";
 import TagsView, { type TagInfo } from "./views/TagsView";
 import AboutView, { type AboutStats } from "./views/AboutView";
@@ -181,10 +179,17 @@ export default function WindowManager({
    *    因为需求就是这样，而且它符合直觉：
    *    用户在「此电脑」里双击的是一个 .md 文件，
    *    用记事本打开一个文本文件是 Win 上最自然的联想。
-   *    ArticleView（阅读排版）则留给"从文章列表/静态页进来"的场景。
    *
-   *    两者共用同一个 NotepadView/ArticleView 组件，
-   *    区别只是 id 前缀不同 → 走不同分支 → 渲染不同外壳。
+   *   ⚠️ 现在 post:<slug> 也走记事本了（原来它走 ArticleView）。
+   *      两个入口合并成一个阅读器，理由：
+   *        记事本有渲染/源码切换、居中阅读、目录、上一篇/下一篇、
+   *        字号、自动换行；ArticleView 是更早的简化版，只有排版。
+   *        两套阅读器并存时，同一个入口点两次可能得到两个不同的界面，
+   *        用户会以为其中一个坏了。
+   *
+   *   ⚠️ ArticleView.tsx / ArchiveView.tsx 两个文件【保留但不再引用】——
+   *      它们不参与构建（没有 import 就不会打包），
+   *      以后想恢复某个入口，加一行 import 就行。
    */
   const renderContent = useCallback(
     (id: string) => {
@@ -211,17 +216,24 @@ export default function WindowManager({
           return <TagsView tags={tags} categories={categories} posts={posts} />;
         case "about":
           return <AboutView stats={stats} />;
-        // 兼容旧路径 /posts：直接进文章列表视图
+        // 兼容旧路径 /posts：直接进资源管理器视图
         case "posts":
-          return <ArchiveView posts={posts} />;
+          return <ExplorerView posts={posts} />;
         /*
           「归档」——从开始菜单/磁贴点进来。
-          ⚠️ 和上面 case "pc" 是【同一个视图】（此电脑本来就是按年份浏览的），
-             只是窗口标题不同。以前这里没有这个 case，所以点「归档」
-             会掉进兜底、显示"未知窗口类型"。
+
+          ⚠️ 用 ExplorerView（此电脑那种资源管理器界面），不是 ArchiveView。
+
+             ArchiveView 是"按年份分组的简约列表"，只有名称和年份两列；
+             ExplorerView 有工具栏、面包屑、排序表头、文件夹/列表两种视图。
+             从磁贴点「归档」的人期待的是后者 —— 那是"桌面里的文件管理器"，
+             不是一张时间线。
+
+             ⚠️ ArchiveView 没有删掉，它在别处还有用；
+                只是「归档」这个入口不再指向它。
         */
         case "archive":
-          return <ArchiveView posts={posts} />;
+          return <ExplorerView posts={posts} />;
         default:
           break;
       }
@@ -313,7 +325,18 @@ export default function WindowManager({
       if (id.startsWith("post:")) {
         const slug = id.slice(5);
         const article = [...posts, ...drafts].find((p) => p.slug === slug);
-        if (article) return <ArticleView article={article} />;
+        /**
+         * ⚠️ 用【记事本】而不是 ArticleView。
+         *
+         *    文章列表、此电脑、桌面快捷方式，点开文章都应该落到记事本 ——
+         *    那里有渲染/源码切换、居中阅读、目录、上一篇/下一篇、
+         *    字号和自动换行。ArticleView 是更早的简化版，
+         *    只负责"把正文排出来"，功能和记事本差一大截。
+         *
+         *    两套阅读器并存的结果就是：同一个入口点了两次，
+         *    一次是简版、一次是全功能版 —— 用户会以为其中一个坏了。
+         */
+        if (article) return <NotepadView posts={posts} slug={slug} />;
         return (
           <div className="grid h-full place-items-center text-[12px] text-[#98a1ae]">
              {tNow("win.notFoundPost", { slug })}

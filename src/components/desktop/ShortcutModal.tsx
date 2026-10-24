@@ -29,7 +29,18 @@ import type { ClientPost } from "../../lib/markdown";
  *   store.addShortcut 里会拦下来（同 id 不重复加），并选中已有的那个。
  *   这个组件负责在按钮上给一句提示，免得用户以为"点了没反应"。
  */
-export default function ShortcutModal({ posts }: { posts: ClientPost[] }) {
+/**
+ * ⚠️⚠️ posts 必须有默认值 []。
+ *
+ *    没有默认值的话，一旦上游漏传（比如 index.astro 没更新），
+ *    下面 filtered 会变成 undefined，`filtered.length` 直接抛
+ *    TypeError —— React 渲染期抛错会让【整个岛屿卸载】，
+ *    表现就是：桌面所有图标消失，右键也没人接（变回浏览器原生菜单）。
+ *
+ *    带默认值后，最坏情况只是列表空着、显示"没有匹配的文章"，
+ *    用户可以关掉模态框继续用桌面。
+ */
+export default function ShortcutModal({ posts = [] }: { posts?: ClientPost[] }) {
   const { t } = useT();
 
   const open = useDesktopStore((s) => s.modalOpen);

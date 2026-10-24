@@ -137,6 +137,7 @@ export const zhCN: DictMap = {
   "np.renderedViewShort": "渲染视图",
   "np.sourceViewShort": "源码视图",
   "np.centerReading": "居中阅读",
+  "np.showToc": "显示目录",
 
   /* ── 浏览器 ── */
   "bv.back": "后退",

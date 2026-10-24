@@ -37,7 +37,7 @@ import ShortcutModal from "./ShortcutModal";
  *   后续事件仍然发给这个元素 —— 用 mouse 事件的话，
  *   甩一下就丢 pointerup，图标会卡在拖动状态。
  */
-export default function DesktopIcons({ posts }: { posts: ClientPost[] }) {
+export default function DesktopIcons({ posts = [] }: { posts?: ClientPost[] }) {
   const items = useDesktopStore((s) => s.items);
   const hydrate = useDesktopStore((s) => s.hydrate);
   const select = useDesktopStore((s) => s.select);
