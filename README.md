@@ -22,6 +22,57 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](./LICENSE)
 
 ---
+## License
+
+[MIT](./LICENSE)
+
+---
+## 项目结构
+
+```
+src/
+├── components/
+│   ├── article/          PostCard（静态页的文章卡片）
+│   ├── desktop/          Desktop、DesktopIcon（桌面和图标）
+│   ├── social/           SocialLinks（静态页的社交链接）
+│   ├── taskbar/          Taskbar、StartMenu、TileGrid、Tile、LiveTile
+│   └── window/
+│       ├── Window.tsx          单个窗口（标题栏 + 内容区 + 拖动缩放）
+│       ├── WindowManager.tsx   窗口调度 + URL 同步
+│       └── views/              每个应用一个视图
+│           ├── ExplorerView      此电脑 / 归档
+│           ├── NotepadView       记事本
+│           ├── BrowserView       浏览器（Blog Explorer）
+│           ├── DraftsView        回收站
+│           ├── ControlPanelView  控制面板
+│           ├── ArticleView       文章阅读排版
+│           ├── PostList / TagsView / ArchiveView / AboutView
+│           ├── Toc / WallpaperPicker
+│           ├── explorer/         文件管理器的外壳与数据层
+│           └── browser/          浏览器三个标签页
+├── config/
+│   ├── apps.ts           应用注册表（所有能点开的东西，唯一真相源）
+│   ├── tiles.ts          磁贴分组
+│   ├── startMenu.ts      开始菜单的左栏
+│   ├── links.ts          友情链接
+│   ├── site.ts           站点信息、社交链接
+│   └── browser-tabs.ts   浏览器标签页
+├── content/
+│   ├── blog/             文章（.md）
+│   └── guide/            教程（.md）
+├── content.config.ts     frontmatter schema 校验
+├── hooks/                useAppearance / useClock / useIsMobile
+├── i18n/                 中英词典 + 运行时切换
+├── layouts/              DesktopLayout（桌面）、ContentLayout（静态页）
+├── lib/                  markdown、posts、theme、tiles、wallpaper、guide
+├── pages/                路由（静态页 + rss / sitemap / 搜索索引）
+├── store/windowStore.ts  窗口状态
+└── styles/global.css     全部 CSS 变量和主题
+
+.verify/                  验收脚本（不需要构建的那几个几秒就能跑）
+```
+
+---
 
 ## 在线预览 （WIP）
 
@@ -41,7 +92,6 @@ npm run dev      # → http://localhost:4321
 ```
 
 ---
-
 ## 特性
 
 - 🖥️ **桌面就是导航** —— 窗口能拖能缩、任务栏能切换、开始菜单有真实分类和标签的磁贴。不需要教用户怎么用，他见过 Windows。
@@ -52,7 +102,6 @@ npm run dev      # → http://localhost:4321
 - ✅ **自带验收** —— 三套脚本，改完随手跑一遍，比翻页面快得多。见 [验收](#验收)。
 
 ---
-
 ## 核心设计
 
 **这是整个项目最需要理解的一点。**
@@ -72,7 +121,6 @@ npm run dev      # → http://localhost:4321
 结果就是：每篇文章都有独立 URL，`sitemap.xml` / `rss.xml` / `search-index.json` 自动生成；禁用 JavaScript 后正文依然完整可读（任务栏和桌面外壳会失效，那本来就是需要 JS 的部分）。
 
 ---
-
 ## 快速开始
 
 **环境要求**：Node.js **≥ 22.12**。
@@ -80,17 +128,13 @@ npm run dev      # → http://localhost:4321
 ```bash
 # 1. 拿到代码
 git clone https://github.com/smallinkfish1/Astro-WinDeck-Theme.git
-cd Astro-Win10-Like-Theme
-
+cd Astro-WinDeck-Theme
 # 2. 装依赖
 npm install
-
 # 3. 开发
 npm run dev        # → http://localhost:4321
-
 # 4. 构建（产物在 dist/）
 npm run build
-
 # 5. 本地预览构建产物
 npm run preview
 ```
@@ -100,12 +144,12 @@ npm run preview
 | `npm run dev` | 开发服务器，热更新 |
 | `npm run build` | 构建静态站点到 `dist/` |
 | `npm run preview` | 预览 `dist/`（改代码后要重新 build） |
+<!--
 | `npm run verify` | 完整验收（静态检查 + 浏览器测试） |
 | `npm run verify:i18n` | 只查多语言词典 |
 | `npm run verify:apps` | 只查应用注册表 |
-
+-->
 ---
-
 ## 怎么用
 
 ### 写一篇文章
@@ -193,53 +237,6 @@ case "photos":
 
 ---
 
-## 项目结构
-
-```
-src/
-├── components/
-│   ├── article/          PostCard（静态页的文章卡片）
-│   ├── desktop/          Desktop、DesktopIcon（桌面和图标）
-│   ├── social/           SocialLinks（静态页的社交链接）
-│   ├── taskbar/          Taskbar、StartMenu、TileGrid、Tile、LiveTile
-│   └── window/
-│       ├── Window.tsx          单个窗口（标题栏 + 内容区 + 拖动缩放）
-│       ├── WindowManager.tsx   窗口调度 + URL 同步
-│       └── views/              每个应用一个视图
-│           ├── ExplorerView      此电脑 / 归档
-│           ├── NotepadView       记事本
-│           ├── BrowserView       浏览器（Blog Explorer）
-│           ├── DraftsView        回收站
-│           ├── ControlPanelView  控制面板
-│           ├── ArticleView       文章阅读排版
-│           ├── PostList / TagsView / ArchiveView / AboutView
-│           ├── Toc / WallpaperPicker
-│           ├── explorer/         文件管理器的外壳与数据层
-│           └── browser/          浏览器三个标签页
-├── config/
-│   ├── apps.ts           应用注册表（所有能点开的东西，唯一真相源）
-│   ├── tiles.ts          磁贴分组
-│   ├── startMenu.ts      开始菜单的左栏
-│   ├── links.ts          友情链接
-│   ├── site.ts           站点信息、社交链接
-│   └── browser-tabs.ts   浏览器标签页
-├── content/
-│   ├── blog/             文章（.md）
-│   └── guide/            教程（.md）
-├── content.config.ts     frontmatter schema 校验
-├── hooks/                useAppearance / useClock / useIsMobile
-├── i18n/                 中英词典 + 运行时切换
-├── layouts/              DesktopLayout（桌面）、ContentLayout（静态页）
-├── lib/                  markdown、posts、theme、tiles、wallpaper、guide
-├── pages/                路由（静态页 + rss / sitemap / 搜索索引）
-├── store/windowStore.ts  窗口状态
-└── styles/global.css     全部 CSS 变量和主题
-
-.verify/                  验收脚本（不需要构建的那几个几秒就能跑）
-```
-
----
-
 ## 技术栈
 
 | 层 | 选型 | 为什么 |
@@ -259,7 +256,6 @@ src/
 > 网上老教程写的 `npm i framer-motion` 装的是旧包，导入路径不一样。
 
 ---
-
 ## 主题与外观
 
 整套外观由 **CSS 变量**驱动，切主题只是给 `<html>` 换个 class：
@@ -285,7 +281,6 @@ src/
 - **壁纸用属性而不是 class** —— 它是「多选一」和「亮/暗」两个维度的组合，用属性是线性增长，用 class 是指数级。
 
 ---
-
 ## 中英双语怎么工作的
 
 不是 `/en/` 路由那套，而是**运行时字典**：
@@ -309,6 +304,7 @@ function MyView() {
 
 ---
 
+<!--
 ## 验收
 
 改完代码随手跑一下，比在浏览器里翻页面快得多：
@@ -344,9 +340,7 @@ npm run verify:apps     # 只查应用注册表
 
 后面的 `verify.mjs` / `verify-theme.mjs` / `verify-tiles.mjs` / `verify-desktop.mjs` / `verify-apps.mjs` 是 Playwright 浏览器测试，跑的是**构建产物**（所以 `npm run verify` 会先提醒你 `npm run build`）。
 
----
-
-<!--## 更多文档
+## 更多文档
 
 仓库根目录还有几份针对具体操作的文档：
 
@@ -356,14 +350,12 @@ npm run verify:apps     # 只查应用注册表
 - **`上传到GitHub-操作指南.md`** —— 部署到线上
 !-->
 ---
-
 ## 反馈
 
 - 发现 bug 或者有想法，开一个 [Issue](../../issues)。
 - 想加一个功能，先在 Issue 里说一下，免得做完发现方向不对。
 
 ---
-
 ## 致谢
 
 这个项目站在这些开源项目和工作上：
@@ -376,14 +368,10 @@ npm run verify:apps     # 只查应用注册表
 - [marked](https://marked.js.org) / [KaTeX](https://katex.org) —— 窗口内的 Markdown 与公式渲染
 - [Shiki](https://shiki.style) —— 构建期代码高亮
 - [Microsoft Learn](https://learn.microsoft.com) 的 Windows UI 术语表 —— 英文界面里的 `This PC` / `Date modified` / `Language & region` 这些叫法都对着它校准过
-
----
-
-## AI 辅助开发
+- [WorkBuddy](https://www.workbuddy.cn) AI 辅助开发
 
 这个项目的代码、注释和文档，在开发过程中借助了 AI 工具。
 
-| | |
 |---|---|
 | 工具 | [WorkBuddy](https://www.workbuddy.cn) |
 | 模型 | DeepSeek-V4.1-Flash |
@@ -394,11 +382,12 @@ npm run verify:apps     # 只查应用注册表
   为什么坚持"两条渲染路径"、哪些界面必须保留静态页、英文术语为什么逐条对齐微软官方、
   以及每一次"这么做还是那么做"的决定，都是人拍的。
 - **代码实现、重构、注释与文档 —— 由 AI 辅助完成。**
-  项目里的代码注释（包括那些"为什么不用另一种写法"的长段说明）、
-  根目录那几份阶段文档、以及本 README，主要出自 AI。
-- **验收 —— 靠脚本和人工共同把关。**
+  项目里的代码注释（包括那些"为什么不用另一种写法"的长段说明）、主要出自 AI。
+<!--
+  - **验收 —— 靠脚本和人工共同把关。**
   `npm run verify` 系列会跑静态检查和浏览器测试，
   改动是否合格由它们和实际点击共同判断，不依赖"看起来没问题"。
+-->
 
 > ⚠️ **AI 写的代码必须经过人工审查和实际运行验证。**
 >
@@ -409,6 +398,4 @@ npm run verify:apps     # 只查应用注册表
 
 ---
 
-## License
 
-[MIT](./LICENSE)

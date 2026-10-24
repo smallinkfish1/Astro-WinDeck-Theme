@@ -78,6 +78,6 @@ test-results/
 playwright-report/
 .playwright/
 src/content/blog/
-
+.verify/
 
 
